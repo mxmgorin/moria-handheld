@@ -1822,7 +1822,7 @@ feature_menu()
     if (FONT) flag |= char_bit('f');
     flag |= char_bit('g');
     flag |= char_bit('h');
-    if (JOYSTICK) flag |= char_bit('j');
+    if (JOYSTICK && TOUCH) flag |= char_bit('j');
     if (JOYSTICK) flag |= char_bit('l');
     flag |= char_bit('m');
     if (!SIDEPANEL) flag |= char_bit('n');

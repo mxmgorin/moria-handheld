@@ -458,6 +458,10 @@ STATIC int
 joystick_init()
 {
   int init = 0;
+  // Without touch the pad is the only way back into the menu, so a stored
+  // "off" -- or a mis-tap on the setting -- would lock the device out for good.
+  if (!TOUCH) globalD.use_joystick = 1;
+
   if (globalD.use_joystick) {
     MUSE(global, label_button_order);
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS,
