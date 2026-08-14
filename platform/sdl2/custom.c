@@ -191,8 +191,24 @@ custom_pregame()
     part_textureD = 338;  // no offset
 
     if (sprite_idD < SPRITE_SQ * SPRITE_SQ) {
+      // The sheet is allocated square but only its first rows hold art, and a
+      // renderer with a modest texture limit (MMIYOO on the Miyoo tops out at
+      // 1920x1080) refuses the whole 1024x2048 of it. Hand it the used rows,
+      // over the same pixels: the column count is untouched, so every sprite
+      // still sits where its id says it does.
+      int rows = (sprite_idD + SPRITE_SQ) / SPRITE_SQ;
+      SDL_Surface* used = SDL_CreateRGBSurfaceWithFormatFrom(
+          sprite->pixels, sprite->w, ART_H * rows, 1, sprite->pitch,
+          SDL_PIXELFORMAT_INDEX1LSB);
+      if (used) {
+        SDL_Palette* palette = used->format->palette;
+        *(int*)&palette->colors[0] = 0;
+        *(int*)&palette->colors[1] = -1;
+      }
+
       // SDL2 determines texture format
-      sprite_textureD = SDL_CreateTextureFromSurface(rendererD, sprite);
+      sprite_textureD = SDL_CreateTextureFromSurface(rendererD, used ? used : sprite);
+      if (used) SDL_FreeSurface(used);
       if (sprite_textureD) {
         SDL_SetTextureBlendMode(sprite_textureD, SDL_BLENDMODE_BLEND);
         uint32_t fmt;
@@ -201,7 +217,8 @@ custom_pregame()
         if (!RELEASE)
           Log("sprite_textureD format: %s", SDL_GetPixelFormatName(fmt));
       } else {
-        Log("WARNING: Unable to CreateTextureFromSurface for sprites");
+        Log("WARNING: Unable to CreateTextureFromSurface for sprites: %s",
+            SDL_GetError());
       }
     } else {
       Log("WARNING: Assets exceed available sprite memory");
