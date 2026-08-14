@@ -300,6 +300,15 @@ custom_pregame()
   SDL_SetTextureBlendMode(map_textureD, SDL_BLENDMODE_NONE);
 
   if (JOYSTICK) joystick_init();
+  keypadD = SDL_getenv("MORIA_KEYPAD") != 0;
+  if (keypadD) {
+    // Centre the stick the way joystick_assign would; nothing else does it
+    // here, and an off-centre one reads every button press as a direction.
+    dpad_direction(dpad_bitsD);
+    // Lists are chosen from by letter without this, and the pad types none.
+    platformD.selection = fnptr(touch_selection);
+    Log("keypad: reading the pad as key presses");
+  }
 
   // Hardware dependent "risky" initialization complete!
   phaseD = PHASE_GAME;

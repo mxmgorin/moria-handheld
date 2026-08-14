@@ -387,6 +387,97 @@ joystick_popup_button(button)
       return 0;
   }
 }
+// One pad, two sources: joystick events on a handheld that reports one, key
+// presses on a Miyoo that does not. Both arrive here so there is a single set
+// of bindings to reason about.
+STATIC int
+pad_dpad(bit, state, mode)
+{
+  if (state)
+    dpad_bitsD |= bit;
+  else
+    dpad_bitsD &= ~bit;
+
+  int ret = 0;
+  int dir = dpad_direction(dpad_bitsD);
+  if (state) ret = dpad_input(dir, mode);
+  if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
+  return ret;
+}
+STATIC int
+pad_button(id, state, mode)
+{
+  int ret = 0;
+  if (state) {
+    if (mode == 0) {
+      ret = joystick_game_button(id);
+      if (ret > ' ' && msg_moreD) ret = ' ';
+    } else if (mode == 1) {
+      ret = joystick_menu_button(id);
+    } else if (mode == 2) {
+      ret = joystick_popup_button(id);
+    }
+  } else {
+    if (blipD) ret = ' ';
+  }
+  return ret;
+}
+STATIC int
+keypad_id(scancode)
+{
+  switch (scancode) {
+    case SDL_SCANCODE_SPACE:
+      return JS_SOUTH;
+    case SDL_SCANCODE_LCTRL:
+      return JS_EAST;
+    case SDL_SCANCODE_LSHIFT:
+      return JS_WEST;
+    case SDL_SCANCODE_LALT:
+      return JS_NORTH;
+    case SDL_SCANCODE_E:
+      return JS_LSHOULDER;
+    case SDL_SCANCODE_T:
+      return JS_RSHOULDER;
+    case SDL_SCANCODE_RCTRL:
+      return JS_BACK;
+    case SDL_SCANCODE_RETURN:
+      return JS_START;
+    default:
+      return -1;
+  }
+}
+STATIC int
+keypad_bit(scancode)
+{
+  switch (scancode) {
+    case SDL_SCANCODE_UP:
+      return HAT_UP;
+    case SDL_SCANCODE_DOWN:
+      return HAT_DOWN;
+    case SDL_SCANCODE_LEFT:
+      return HAT_LEFT;
+    case SDL_SCANCODE_RIGHT:
+      return HAT_RIGHT;
+    default:
+      return 0;
+  }
+}
+// -1 for a key the pad has no use for, so the keyboard still gets it.
+int
+sdl_keypad_event(SDL_Event event)
+{
+  USE(mode);
+  int scancode = event.key.keysym.scancode;
+  int state = (event.type == SDL_KEYDOWN);
+
+  int bit = keypad_bit(scancode);
+  if (bit) return pad_dpad(bit, state, mode);
+
+  int id = keypad_id(scancode);
+  if (id < 0) return -1;
+
+  return pad_button(id, state, mode);
+}
 int
 sdl_joystick_event(SDL_Event event)
 {
@@ -409,33 +500,10 @@ sdl_joystick_event(SDL_Event event)
       if (mode == 0) return 0;
     }
 
-    if (id >= JS_DPUP && id <= JS_DPRIGHT) {
-      int bit = dpad_bit_by_idD[id - JS_DPUP];
-      if (state)
-        dpad_bitsD |= bit;
-      else
-        dpad_bitsD &= ~bit;
+    if (id >= JS_DPUP && id <= JS_DPRIGHT)
+      return pad_dpad(dpad_bit_by_idD[id - JS_DPUP], state, mode);
 
-      int dir = dpad_direction(dpad_bitsD);
-      if (state) ret = dpad_input(dir, mode);
-      if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
-      return ret;
-    }
-
-    if (state) {
-      button = id;
-
-      if (mode == 0) {
-        ret = joystick_game_button(button);
-        if (ret > ' ' && msg_moreD) ret = ' ';
-      } else if (mode == 1) {
-        ret = joystick_menu_button(button);
-      } else if (mode == 2) {
-        ret = joystick_popup_button(button);
-      }
-    } else {
-      if (blipD) ret = ' ';
-    }
+    ret = pad_button(id, state, mode);
   }
   return ret;
 }
@@ -484,7 +552,7 @@ joystick_update()
 STATIC int
 joystick_active()
 {
-  return joystick_ptrD != 0;
+  return joystick_ptrD != 0 || keypadD;
 }
 // The buttons are bound here, so the help for them is written here too. Returns
 // zero when there is no pad, leaving the keyboard help to stand.

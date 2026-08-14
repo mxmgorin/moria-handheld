@@ -109,6 +109,10 @@ DATA SDL_Point layout_maxD;
 // streaming texture the CPU wrote -- mmiyoo on the Miyoo shows that and drops
 // every other path without erroring. So the game draws into a surface through a
 // software renderer, and the window renderer carries one texture copy per frame.
+// A Miyoo hands its pad over as key presses rather than as a joystick; the keys
+// are the sdl2_miyoo mapping every app there reads.
+DATA int keypadD;
+
 DATA SDL_Renderer* window_rendererD;
 DATA SDL_Surface* blit_surfaceD;
 DATA SDL_Texture* blit_textureD;
@@ -550,9 +554,17 @@ sdl_pump()
       case SDL_FINGERUP:
         if (MOUSE || TOUCH) ret = sdl_touch_event(eventD);
         break;
-      case SDL_KEYDOWN:
-        // case SDL_KEYUP: // (optional)
-        if (KEYBOARD) ret = sdl_keyboard_event(eventD);
+      case SDL_KEYUP:
+        if (keypadD) ret = sdl_keypad_event(eventD);
+        if (ret < 0) ret = 0;
+        break;
+      case SDL_KEYDOWN: {
+        int pad = keypadD ? sdl_keypad_event(eventD) : -1;
+        if (pad >= 0)
+          ret = pad;
+        else if (KEYBOARD)
+          ret = sdl_keyboard_event(eventD);
+      }
         if (SCREENSHOT && (eventD.key.keysym.mod & KMOD_CTRL) > 0 &&
             (eventD.key.keysym.mod & KMOD_ALT) > 0 &&
             eventD.key.keysym.sym == 's')
