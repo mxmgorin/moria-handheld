@@ -407,6 +407,11 @@ pad_dpad(bit, state, mode)
 STATIC int
 pad_button(id, state, mode)
 {
+  if (id == JS_LTRIGGER) {
+    modifier_heldD = state;
+    if (mode == 0) return 0;
+  }
+
   int ret = 0;
   if (state) {
     if (mode == 0) {
@@ -437,6 +442,15 @@ keypad_id(scancode)
     case SDL_SCANCODE_E:
       return JS_LSHOULDER;
     case SDL_SCANCODE_T:
+      return JS_RSHOULDER;
+    case SDL_SCANCODE_TAB:
+      return JS_LTRIGGER;
+    case SDL_SCANCODE_BACKSPACE:
+      return JS_RTRIGGER;
+    // A USB keyboard in the dock sends these where the device sends its own.
+    case SDL_SCANCODE_PAGEUP:
+      return JS_LSHOULDER;
+    case SDL_SCANCODE_PAGEDOWN:
       return JS_RSHOULDER;
     case SDL_SCANCODE_RCTRL:
       return JS_BACK;
@@ -494,11 +508,6 @@ sdl_joystick_event(SDL_Event event)
   if (JOYSTICK) {
     int id = -1;
     if (button >= 0 && button < AL(mappingD)) id = mappingD[button];
-
-    if (id == JS_LTRIGGER) {
-      modifier_heldD = state;
-      if (mode == 0) return 0;
-    }
 
     if (id >= JS_DPUP && id <= JS_DPRIGHT)
       return pad_dpad(dpad_bit_by_idD[id - JS_DPUP], state, mode);

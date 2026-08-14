@@ -300,7 +300,11 @@ custom_pregame()
   SDL_SetTextureBlendMode(map_textureD, SDL_BLENDMODE_NONE);
 
   if (JOYSTICK) joystick_init();
-  keypadD = SDL_getenv("MORIA_KEYPAD") != 0;
+  // The video driver gives the device away; the variable is for trying the
+  // layout anywhere else.
+  const char* video = SDL_GetCurrentVideoDriver();
+  keypadD = SDL_getenv("MORIA_KEYPAD") != 0 ||
+            (video && SDL_strcmp(video, "mmiyoo") == 0);
   if (keypadD) {
     // Centre the stick the way joystick_assign would; nothing else does it
     // here, and an off-centre one reads every button press as a direction.
