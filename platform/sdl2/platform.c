@@ -47,6 +47,10 @@ enum { WINDOW = 0 };
 #define WINDOW_X 1920  // 1440, 1334
 #define WINDOW_Y 1080  // 720, 750
 
+// Used when the driver reports no size of its own; the commonest handheld panel.
+#define PANEL_X 640
+#define PANEL_Y 480
+
 // optional: layout xy <= 2*1024
 enum { PORTRAIT = 0 };
 #define PORTRAIT_X 1080
@@ -99,6 +103,7 @@ DATA int refresh_rateD;
 DATA int vsync_rateD;
 
 DATA SDL_Texture* layoutD;
+DATA SDL_Point layout_maxD;
 DATA SDL_Rect layout_rectD;
 DATA SDL_FRect view_rectD;
 
@@ -184,7 +189,23 @@ render_init()
   }
   if (__APPLE__) winflag |= SDL_WINDOW_ALLOW_HIGHDPI;
   if (REORIENTATION) winflag |= SDL_WINDOW_RESIZABLE;
-  windowD = SDL_CreateWindow("", 0, 0, WINDOW_X, WINDOW_Y, winflag);
+  // A driver that reports no display bounds -- mmiyoo on the Miyoo is one --
+  // hands fullscreen-desktop a 0x0 window, and everything downstream comes out
+  // empty: renderer output, layout, the whole frame. Ask first, and fall back
+  // to a plain window of panel size rather than a fullscreen one of no size.
+  int win_x = WINDOW_X, win_y = WINDOW_Y;
+  {
+    rect_t probe = {0};
+    SDL_GetDisplayBounds(0, &probe);
+    if (probe.w <= 0 || probe.h <= 0) {
+      Log("no display bounds; plain %dx%d window", PANEL_X, PANEL_Y);
+      winflag &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
+      win_x = PANEL_X;
+      win_y = PANEL_Y;
+    }
+  }
+
+  windowD = SDL_CreateWindow("", 0, 0, win_x, win_y, winflag);
   if (!windowD) return 0;
 
   if (!RELEASE) {
@@ -245,10 +266,17 @@ render_init()
     retina_scaleD = MAX((float)rw / ww, (float)rh / wh);
   }
 
-  // Check texture limitations
-  if ((rinfo.max_texture_width && rinfo.max_texture_width < 2 * 1024) ||
-      (rinfo.max_texture_height && rinfo.max_texture_height < 2 * 1024))
-    return 0;
+  // The layout canvas lives inside one texture. A renderer that cannot hold a
+  // square canvas is no use; one that merely cannot reach LAYOUT_MAX -- MMIYOO
+  // on the Miyoo reports 1920x1080 -- just gets a smaller texture to draw in.
+  layout_maxD.x = LAYOUT_MAX;
+  layout_maxD.y = LAYOUT_MAX;
+  if (rinfo.max_texture_width && rinfo.max_texture_width < layout_maxD.x)
+    layout_maxD.x = rinfo.max_texture_width;
+  if (rinfo.max_texture_height && rinfo.max_texture_height < layout_maxD.y)
+    layout_maxD.y = rinfo.max_texture_height;
+  Log("layout texture %dx%d", layout_maxD.x, layout_maxD.y);
+  if (layout_maxD.x < LANDSCAPE_Y || layout_maxD.y < LANDSCAPE_Y) return 0;
 
   if (!texture_formatD) {
     texture_formatD = rinfo.texture_formats[0];
@@ -273,7 +301,8 @@ render_init()
   platform_draw();
 
   layoutD = SDL_CreateTexture(renderer, texture_formatD,
-                              SDL_TEXTUREACCESS_TARGET, LAYOUT_MAX, LAYOUT_MAX);
+                              SDL_TEXTUREACCESS_TARGET, layout_maxD.x,
+                              layout_maxD.y);
   if (layoutD == 0) return 0;
 
   if (PC) {
@@ -284,6 +313,12 @@ render_init()
     if (WINDOW) {
       event.window.data1 = WINDOW_X;
       event.window.data2 = WINDOW_Y;
+    }
+    if (event.window.data1 <= 0 || event.window.data2 <= 0) {
+      int ww = 0, wh = 0;
+      SDL_GetWindowSize(windowD, &ww, &wh);
+      event.window.data1 = ww > 0 ? ww : PANEL_X;
+      event.window.data2 = wh > 0 ? wh : PANEL_Y;
     }
     if (event.window.data1 > 0 && event.window.data2 > 0)
       sdl_window_event(event);
@@ -379,9 +414,11 @@ platform_orientation(orientation)
   if (orientation == SDL_ORIENTATION_LANDSCAPE) {
     // A fixed 16:9 canvas letterboxes a 4:3 panel and throws away a quarter of
     // its height, so the width follows the panel and the height is kept.
-    int fitted = LANDSCAPE_Y * (float)display_rect.w / display_rect.h;
+    int fitted = display_rect.h > 0
+                     ? LANDSCAPE_Y * (float)display_rect.w / display_rect.h
+                     : LANDSCAPE_X;
     layout_rect =
-        (rect_t){0, 0, CLAMP(fitted, LANDSCAPE_Y, LAYOUT_MAX), LANDSCAPE_Y};
+        (rect_t){0, 0, CLAMP(fitted, LANDSCAPE_Y, layout_maxD.x), LANDSCAPE_Y};
 
     {
       // safe_rect is respected on the orientation axis
