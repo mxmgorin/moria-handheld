@@ -173,7 +173,9 @@ SDL_Event event;
 int
 render_init()
 {
-  int winflag = WINDOW ? SDL_WINDOW_BORDERLESS : SDL_WINDOW_FULLSCREEN;
+  // A handheld panel exposes a single mode; requesting an exclusive
+  // WINDOW_X by WINDOW_Y mode makes kmsdrm modeset wrong or fail outright.
+  int winflag = WINDOW ? SDL_WINDOW_BORDERLESS : SDL_WINDOW_FULLSCREEN_DESKTOP;
   if (check_gl()) {
     winflag |= SDL_WINDOW_OPENGL;
   }
