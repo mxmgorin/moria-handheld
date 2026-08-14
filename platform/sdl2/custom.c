@@ -268,6 +268,7 @@ custom_pregame()
   if (DPAD) dpad_init();
   if (DPAD && SIDEPANEL) dpad_classic();
   if (DPAD && SIDEPANEL) platformD.dpad = dpad_classic;
+  if (JOYSTICK) platformD.help = joystick_help;
 
   // !!texture_formatD override!! minimapD is streaming abgr8888
   mmtextureD =

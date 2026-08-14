@@ -7,7 +7,7 @@ enum { BIND_VERBOSE = 0 };
 DATA SDL_Joystick* joystick_ptrD;
 DATA float jxD;
 DATA float jyD;
-DATA int triggerD;
+DATA int rtrigger_heldD;
 DATA int joystick_refcountD;
 
 enum { CHAR_LTRIGGER = '0' };
@@ -39,6 +39,7 @@ DATA char mappingD[MAX_MAPPING];
 enum { HAT_UP = 0x01, HAT_RIGHT = 0x02, HAT_DOWN = 0x04, HAT_LEFT = 0x08 };
 DATA int dpad_bitsD;
 DATA int dpad_bit_by_idD[] = {HAT_UP, HAT_DOWN, HAT_LEFT, HAT_RIGHT};
+DATA int modifier_heldD;
 
 enum {
   JA_LX,
@@ -163,6 +164,7 @@ joystick_assign(jsidx)
   // Center input
   jxD = jyD = .5;
   dpad_bitsD = 0;
+  modifier_heldD = 0;
 }
 STATIC int
 joystick_dir()
@@ -188,6 +190,7 @@ joystick_button(button)
 int
 sdl_axis_motion(SDL_Event event)
 {
+  USE(mode);
   int ret = 0;
 
   if (JOYSTICK) {
@@ -214,15 +217,16 @@ sdl_axis_motion(SDL_Event event)
         jyD = norm;
         break;
       case JA_LTRIGGER:
-        if (trigger && !triggerD) ret = CHAR_LTRIGGER;
-        triggerD = trigger;
+        // Gameplay spends the left trigger on the modifier layer instead.
+        if (mode != 0 && trigger && !modifier_heldD) ret = CHAR_LTRIGGER;
+        modifier_heldD = trigger;
         break;
       case JA_RX:
       case JA_RY:
         break;
       case JA_RTRIGGER:
-        if (trigger && !triggerD) ret = CHAR_RTRIGGER;
-        triggerD = trigger;
+        if (trigger && !rtrigger_heldD) ret = mode == 0 ? 'x' : CHAR_RTRIGGER;
+        rtrigger_heldD = trigger;
         break;
     }
   }
@@ -272,7 +276,13 @@ dpad_direction(bits)
 STATIC int
 dpad_input(dir, mode)
 {
-  if (mode == 0) return key_dir(dir);
+  if (mode == 0) {
+    char c = key_dir(dir);
+    // Held trigger runs rather than steps: the same uppercase the game already
+    // reads from B with a direction, but without the step the press costs.
+    if (modifier_heldD && c != ' ') c &= ~0x20;
+    return c;
+  }
   if (mode == 1) return overlay_dir(dir, 0);
   return ' ';  // popup dismissal, as a touch on the pad does
 }
@@ -291,27 +301,51 @@ sdl_hat_motion(SDL_Event event)
   if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
   return ret;
 }
+// Held left trigger: the commands the ten buttons have no room for. A modifier
+// rather than a stick click, since a device may carry no sticks at all.
+STATIC int
+joystick_modifier_button(button)
+{
+  switch (button) {
+    case JS_SOUTH:
+      return 'e';  // use equipment
+    case JS_EAST:
+      return 'd';  // drop an item
+    case JS_WEST:
+      return 'p';  // message history
+    case JS_NORTH:
+      return '?';  // help
+    case JS_LSHOULDER:
+      return CHAR_RTRIGGER;  // magnification
+    case JS_RSHOULDER:
+      return 'M';  // locate on the level map
+    default:
+      return 0;
+  }
+}
 int
 joystick_game_button(button)
 {
+  if (modifier_heldD) return joystick_modifier_button(button);
+
   switch (button) {
     case JS_SOUTH:
     case JS_EAST:  // movement
       return joystick_button(button);
     case JS_WEST:
-      return 'p';
+      return 'R';  // rest
     case JS_NORTH:
       return '!';
     case JS_LSHOULDER:
-      return 'c';
+      return 'c';  // character sheet
     case JS_RSHOULDER:
-      return 'm';
+      return 'm';  // dungeon map
     case JS_LTRIGGER:
       return CHAR_LTRIGGER;
     case JS_RTRIGGER:
-      return CHAR_RTRIGGER;
+      return 'x';  // examine along a direction
     case JS_BACK:
-      return CTRL('z');
+      return CTRL('z');  // undo a turn
     case JS_START:
       return CTRL('w');  // show advanced menu
     default:
@@ -323,9 +357,11 @@ joystick_menu_button(button)
 {
   switch (button) {
     case JS_SOUTH:
-    case JS_EAST:  // movement
-      return overlay_dir(joystick_dir(), button == JS_EAST);
+      return overlay_dir(joystick_dir(), 0);
     case JS_NORTH:
+      // Second-finger variant: inspect rather than use, and page scrolling.
+      return overlay_dir(joystick_dir(), 1);
+    case JS_EAST:
     case JS_WEST:
       return ESCAPE;
     default:
@@ -337,13 +373,14 @@ joystick_popup_button(button)
 {
   switch (button) {
     case JS_SOUTH:
+    case JS_EAST:
       return ESCAPE;
     case JS_WEST:
       return 'p';
+    case JS_NORTH:
+      return 'o';  // from death screen, go back to last game frame; reroll
     case JS_LSHOULDER:
       return 'c';
-    case JS_EAST:
-      return 'o';  // from death screen, go back to last game frame; reroll
     case JS_BACK:
       return CTRL('z');
     default:
@@ -366,6 +403,11 @@ sdl_joystick_event(SDL_Event event)
   if (JOYSTICK) {
     int id = -1;
     if (button >= 0 && button < AL(mappingD)) id = mappingD[button];
+
+    if (id == JS_LTRIGGER) {
+      modifier_heldD = state;
+      if (mode == 0) return 0;
+    }
 
     if (id >= JS_DPUP && id <= JS_DPRIGHT) {
       int bit = dpad_bit_by_idD[id - JS_DPUP];
@@ -440,3 +482,48 @@ joystick_active()
 {
   return joystick_ptrD != 0;
 }
+// The buttons are bound here, so the help for them is written here too. Returns
+// zero when there is no pad, leaving the keyboard help to stand.
+int
+joystick_help()
+{
+  if (!joystick_active()) return 0;
+
+  int line = 1;
+  screen_submodeD = 1;
+
+  BufMsg(screen, "dpad: step, L2+dpad: run");
+  BufMsg(screen, "A: act on this square");
+  BufMsg(screen, "B: use an item, B+dpad: run");
+  BufMsg(screen, "X: rest");
+  BufMsg(screen, "Y: repeat last spell/item");
+  BufMsg(screen, "L1: character sheet, held");
+  BufMsg(screen, "R1: dungeon map, held");
+  BufMsg(screen, "R2: look along a direction");
+  BufMsg(screen, "SELECT: undo a turn");
+  BufMsg(screen, "START: game menu");
+  line += 1;
+  BufMsg(screen, "A takes stairs, picks an item up");
+  BufMsg(screen, "or enters a shop where it can,");
+  BufMsg(screen, "and searches where it cannot.");
+
+  BufPad(screen, AL(screenD), 34);
+
+  line = 1;
+  BufMsg(screen, "HOLD L2");
+  BufMsg(screen, "  A: use equipment");
+  BufMsg(screen, "  B: drop an item");
+  BufMsg(screen, "  X: message history");
+  BufMsg(screen, "  Y: this help");
+  BufMsg(screen, "  L1: zoom adjustment");
+  BufMsg(screen, "  R1: locate on the map");
+  line += 1;
+  BufMsg(screen, "LISTS");
+  BufMsg(screen, "  dpad: move the selection");
+  BufMsg(screen, "  A: choose, B or X: back");
+  BufMsg(screen, "  Y: inspect instead of use");
+  BufMsg(screen, "  Y+dpad: page or jump to an end");
+
+  return 1;
+}
+

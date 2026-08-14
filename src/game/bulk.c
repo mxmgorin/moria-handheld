@@ -58,6 +58,7 @@ struct platformS {
   fn saveex;
   fn testex;
   fn dpad;
+  fn help;
   fn monster_memory;
   fn mmap_replay;
 };

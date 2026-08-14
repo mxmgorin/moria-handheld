@@ -11429,6 +11429,8 @@ py_help()
 {
   int line = 1;
 
+  if (platformD.help()) return CLOBBER_MSG("gamepad help");
+
   screen_submodeD = 1;
   BufMsg(screen, "a: actuate inventory item");
   BufMsg(screen, "c: character screen");
