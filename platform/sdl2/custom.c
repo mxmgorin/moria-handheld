@@ -1903,7 +1903,9 @@ feature_menu()
         joystick_update();
         break;
       case 'm':
-        globalD.zoom_factor = (globalD.zoom_factor - 1) % MAX_ZOOM;
+        // Ascending: the field is unsigned, so decrementing from 1x wrapped
+        // straight to the largest magnification and skipped 2x and 4x.
+        globalD.zoom_factor = (globalD.zoom_factor + 1) % MAX_ZOOM;
         break;
       case 'n':
         if (globalD.map_rows >= SYMMAP_HEIGHT)
