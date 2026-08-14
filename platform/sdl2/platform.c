@@ -486,6 +486,9 @@ sdl_pump()
       case SDL_JOYAXISMOTION:
         if (JOYSTICK) ret = sdl_axis_motion(eventD);
         break;
+      case SDL_JOYHATMOTION:
+        if (JOYSTICK) ret = sdl_hat_motion(eventD);
+        break;
       case SDL_JOYBUTTONDOWN:
       case SDL_JOYBUTTONUP:  // (optional)
         if (JOYSTICK) ret = sdl_joystick_event(eventD);

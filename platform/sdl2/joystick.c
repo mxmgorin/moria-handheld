@@ -26,9 +26,19 @@ enum {
   JS_RTRIGGER,  // Disabled if AXIS trigger support exists
   JS_BACK,
   JS_START,
+  JS_DPUP,
+  JS_DPDOWN,
+  JS_DPLEFT,
+  JS_DPRIGHT,
   JS_COUNT,
 };
 DATA char mappingD[MAX_MAPPING];
+
+// SDL_HAT_* is absent from the flattened SDL header; these are the SDL2 ABI
+// values, reused as the internal dpad bitmask.
+enum { HAT_UP = 0x01, HAT_RIGHT = 0x02, HAT_DOWN = 0x04, HAT_LEFT = 0x08 };
+DATA int dpad_bitsD;
+DATA int dpad_bit_by_idD[] = {HAT_UP, HAT_DOWN, HAT_LEFT, HAT_RIGHT};
 
 enum {
   JA_LX,
@@ -132,6 +142,10 @@ joystick_assign(jsidx)
     BUTTON("rightshoulder", JS_RSHOULDER);
     BUTTON("back", JS_BACK);
     BUTTON("start", JS_START);
+    BUTTON("dpup", JS_DPUP);
+    BUTTON("dpdown", JS_DPDOWN);
+    BUTTON("dpleft", JS_DPLEFT);
+    BUTTON("dpright", JS_DPRIGHT);
 
     AXIS("leftx", JA_LX);
     AXIS("lefty", JA_LY);
@@ -148,6 +162,7 @@ joystick_assign(jsidx)
 
   // Center input
   jxD = jyD = .5;
+  dpad_bitsD = 0;
 }
 STATIC int
 joystick_dir()
@@ -239,6 +254,43 @@ overlay_dir(dir, finger)
   }
   return CTRL('d');
 }
+// A handheld dpad arrives as a hat or as buttons, while upstream derives
+// direction from the analog axes alone; both encodings fold into jx/jy here.
+// The direction is kept as held state so a shoulder or B press still applies to
+// it, and a press also acts at once, matching the touch pad on mobile.
+STATIC int
+dpad_direction(bits)
+{
+  int col = ((bits & HAT_RIGHT) != 0) - ((bits & HAT_LEFT) != 0);
+  int row = ((bits & HAT_DOWN) != 0) - ((bits & HAT_UP) != 0);
+
+  jxD = .5f + .5f * col;
+  jyD = .5f + .5f * row;
+
+  return joystick_dir();
+}
+STATIC int
+dpad_input(dir, mode)
+{
+  if (mode == 0) return key_dir(dir);
+  if (mode == 1) return overlay_dir(dir, 0);
+  return ' ';  // popup dismissal, as a touch on the pad does
+}
+int
+sdl_hat_motion(SDL_Event event)
+{
+  USE(mode);
+
+  int prev = dpad_bitsD;
+  dpad_bitsD = event.jhat.value;
+
+  int ret = 0;
+  int dir = dpad_direction(dpad_bitsD);
+  // Releases only recenter; acting on them too would double every step.
+  if (dpad_bitsD & ~prev) ret = dpad_input(dir, mode);
+  if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
+  return ret;
+}
 int
 joystick_game_button(button)
 {
@@ -312,11 +364,24 @@ sdl_joystick_event(SDL_Event event)
 
   int ret = 0;
   if (JOYSTICK) {
-    if (state) {
-      if (button >= 0 && button < AL(mappingD))
-        button = mappingD[button];
+    int id = -1;
+    if (button >= 0 && button < AL(mappingD)) id = mappingD[button];
+
+    if (id >= JS_DPUP && id <= JS_DPRIGHT) {
+      int bit = dpad_bit_by_idD[id - JS_DPUP];
+      if (state)
+        dpad_bitsD |= bit;
       else
-        button = -1;
+        dpad_bitsD &= ~bit;
+
+      int dir = dpad_direction(dpad_bitsD);
+      if (state) ret = dpad_input(dir, mode);
+      if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
+      return ret;
+    }
+
+    if (state) {
+      button = id;
 
       if (mode == 0) {
         ret = joystick_game_button(button);
