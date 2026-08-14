@@ -10846,6 +10846,9 @@ show_version()
   line += 1;
   BufMsg(screen, "Programming: %s", "Alan Newton");
   BufMsg(screen, "Art: %s", "Nathan Miller");
+  line += 1;
+  BufMsg(screen, "Handheld port: %s", "mxmgorin");
+  BufMsg(screen, "Modified from RufeDotOrg/moria_at");
 
   return CLOBBER_MSG("Version %s", versionD);
 }
