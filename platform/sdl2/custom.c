@@ -833,11 +833,17 @@ landscape_text(mode)
       alpha = (msg_turnD == turnD) ? FALPHA : PREV_ALPHA;
     }
 
-    SDL_Point p = {layout_rect.w / 2 - msg_used * FWIDTH / 2, 0};
+    // CLOBBER_MSG reports STRLEN_MSG for every prompt rather than the length
+    // of the string it wrote, which centres it off the left edge of a canvas
+    // narrower than the 1920 upstream assumes.
+    int msg_len = 0;
+    while (msg_len < msg_used && msg[msg_len]) msg_len += 1;
+
+    SDL_Point p = {layout_rect.w / 2 - msg_len * FWIDTH / 2, 0};
     rect_t rect = {
         p.x - FWIDTH / 2,
         p.y,
-        (1 + msg_used) * FWIDTH,
+        (1 + msg_len) * FWIDTH,
         FHEIGHT,
     };
     if (TEST_UI) {
@@ -851,9 +857,9 @@ landscape_text(mode)
       SDL_RenderFillRect(renderer, &text_target);
     }
 
-    if (msg_used) {
+    if (msg_len) {
       font_alpha(alpha);
-      render_monofont_string(renderer, &fontD, msg, msg_used, p);
+      render_monofont_string(renderer, &fontD, msg, msg_len, p);
       font_reset();
 
       SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
