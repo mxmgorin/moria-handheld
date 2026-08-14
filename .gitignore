@@ -3,3 +3,7 @@ bin/
 /sdl2
 src/platform
 dev.h
+build/
+portmaster/minesofmoria/minesofmoria.*
+onionos/
+tools/package_onionos.py

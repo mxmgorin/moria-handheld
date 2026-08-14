@@ -1,0 +1,57 @@
+name: PortMaster
+
+# The build lives in tools/, not here: CI runs the same scripts a laptop does,
+# so a release cannot come out different from a local build.
+on:
+  workflow_dispatch:
+  push:
+    branches: ["portmaster"]
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # zig is ~50 MB and the SDL2 debs ~2 MB; both are pinned in the script.
+      - uses: actions/cache@v4
+        with:
+          path: build/download-cache
+          key: toolchain-${{ hashFiles('tools/fetch_toolchain.sh') }}
+
+      - name: Toolchain
+        run: tools/fetch_toolchain.sh
+
+      # build.sh refuses to finish if a binary needs a glibc above the floor,
+      # which is the failure that only shows up on the device otherwise.
+      - name: Build
+        run: |
+          for arch in aarch64 armhf x86_64; do
+            tools/build.sh "$arch"
+          done
+
+      - name: Package
+        run: |
+          python3 tools/package.py
+          cd build
+          sha256sum minesofmoria-portmaster.zip > minesofmoria-portmaster.zip.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: minesofmoria
+          path: |
+            build/minesofmoria-portmaster.zip
+            build/minesofmoria-portmaster.zip.sha256
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            build/minesofmoria-portmaster.zip build/minesofmoria-portmaster.zip.sha256 --clobber
