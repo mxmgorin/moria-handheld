@@ -4,6 +4,11 @@
 #define MAX_WIDTH 128
 #define SYMMAP_HEIGHT 16
 #define SYMMAP_WIDTH 32
+
+// Rows the map window keeps when it is shaped to the display, and the step the
+// setting moves by; the ceiling is SYMMAP_HEIGHT.
+#define MAP_ROWS_MIN 8
+#define MAP_ROWS_STEP 2
 // (4 Quadrants per view area)
 #define CHUNK_WIDTH (SYMMAP_WIDTH / 2)
 #define CHUNK_HEIGHT (SYMMAP_HEIGHT / 2)

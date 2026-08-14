@@ -37,7 +37,8 @@ struct globalS {
   uint8_t font_color;
   uint8_t power_mode;
   uint8_t gpu_bypass;
-  char unused[15];
+  uint8_t map_rows;
+  char unused[14];
 };
 static struct globalS globalD;
 struct platformS {

@@ -38,6 +38,11 @@ enum { AFF_Y = AL(active_affectD) / AFF_X };
 enum { SPRITE_SQ = 32 };
 enum { MMSCALE = 2 };
 
+// The pad, the face buttons, the stat block and the minimap can only be worked
+// by touch, and with a controller the same data is one button away (L1 sheet,
+// R1 map), so without touch the map takes the canvas instead.
+enum { SIDEPANEL = TOUCH };
+
 DATA char moreD[] = "-more-";
 
 DATA fn text_fnD;
@@ -261,8 +266,8 @@ custom_pregame()
   if (TOUCH) platformD.selection = touch_selection;
 
   if (DPAD) dpad_init();
-  if (DPAD) dpad_classic();
-  if (DPAD) platformD.dpad = dpad_classic;
+  if (DPAD && SIDEPANEL) dpad_classic();
+  if (DPAD && SIDEPANEL) platformD.dpad = dpad_classic;
 
   // !!texture_formatD override!! minimapD is streaming abgr8888
   mmtextureD =
@@ -454,6 +459,16 @@ landscape_layout()
       (2 + AL(overlayD)) * FHEIGHT,
   };
 
+  if (!SIDEPANEL) {
+    // Message row on top, status row at the bottom, map filling the rest.
+    int avail = layout_rect.h - ymargin - FHEIGHT;
+
+    grectD[GR_GAMEPLAY] = (rect_t){0, ymargin, layout_rect.w, avail};
+    grectD[GR_OVERLAY].x = (layout_rect.w - grectD[GR_OVERLAY].w) / 2;
+    grectD[GR_WIDESCREEN].x = 0;
+    grectD[GR_WIDESCREEN].w = layout_rect.w;
+  }
+
   return 0;
 }
 
@@ -498,16 +513,36 @@ zoom_rect(rect_t* po_rect)
 {
   int zoom_factor = globalD.zoom_factor;
   if (globalD.sprite == 0) zoom_factor = 0;
-  int cellh = SYMMAP_HEIGHT >> zoom_factor;
-  int cellw = SYMMAP_WIDTH >> zoom_factor;
+  int extra = (zoom_factor != 0);
+  int budget = (SYMMAP_HEIGHT >> zoom_factor) + extra;
+  int cellh = budget;
+  int cellw = (SYMMAP_WIDTH >> zoom_factor) + extra;
+
+  if (!SIDEPANEL) {
+    // A window of w by h cells is w * ART_W by h * ART_H on screen. Shape it
+    // like the display, or the panel's own shape gets pillarboxed; where the
+    // panel runs out of columns, rows are given up instead.
+    AUSE(grect, GR_GAMEPLAY);
+    if (grect.w > 0 && grect.h > 0) {
+      cellw = (cellh * ART_H * grect.w) / (ART_W * grect.h);
+      if (cellw > SYMMAP_WIDTH) {
+        cellw = SYMMAP_WIDTH;
+        cellh = (cellw * ART_W * grect.h) / (ART_H * grect.w);
+      }
+      // The floor buys rows back at the price of pillarboxing, and cannot ask
+      // for more than the magnification is showing.
+      cellh = CLAMP(cellh, MIN(globalD.map_rows, budget), budget);
+      cellw = MAX(cellw, 1);
+    }
+  }
 
   rect_t view;
   view_rect(&view);
   rect_t rect = {
       uD.x - cellw / 2,
       uD.y - cellh / 2,
-      cellw + (zoom_factor != 0),
-      cellh + (zoom_factor != 0),
+      cellw,
+      cellh,
   };
   align_subrect(&view, &rect);
   memcpy(po_rect, &rect, sizeof(rect));
@@ -625,7 +660,7 @@ game_text()
   char tmp[80];
   int len;
 
-  {
+  if (SIDEPANEL) {
     AUSE(grect, GR_MINIMAP);
     {
       SDL_Point p = {grect.x, grect.y - FHEIGHT - 24};
@@ -683,6 +718,20 @@ game_text()
         }
       }
     }
+  } else {
+    // Status row under the map: depth on the left, turn count on the right.
+    AUSE(grect, GR_GAMEPLAY);
+    SDL_Point p = {0, grect.y + grect.h};
+
+    // Centred: the bottom left of the canvas carries the -press spacebar- hint.
+    char* label = dun_level ? dun_descD : "town square";
+    int label_len = strlen(label);
+    p.x = grect.x + (grect.w - label_len * FWIDTH) / 2;
+    render_monofont_string(renderer, &fontD, label, label_len, p);
+
+    len = snprintf(tmp, AL(tmp), "turn:%7d", turnD);
+    p.x = grect.x + grect.w - len * FWIDTH;
+    render_monofont_string(renderer, &fontD, tmp, len, p);
   }
 
   if (PC) {
@@ -762,7 +811,7 @@ portrait_text(mode)
     game_text();
   }
 
-  vitalstat_text();
+  if (SIDEPANEL) vitalstat_text();
 
   return 0;
 }
@@ -836,7 +885,7 @@ landscape_text(mode)
     game_text();
   }
 
-  vitalstat_text();
+  if (SIDEPANEL) vitalstat_text();
 
   return 0;
 }
@@ -1073,7 +1122,7 @@ draw_game()
 {
   USE(minimap_enlarge);
 
-  int show_minimap = (maD[MA_BLIND] == 0);
+  int show_minimap = SIDEPANEL && (maD[MA_BLIND] == 0);
   int show_game = 1;
 
   {
@@ -1105,37 +1154,33 @@ draw_game()
       } else {
         map_draw();
 
+        rect_t zr;
+        zoom_rect(&zr);
+
+        rect_t vr;
+        view_rect(&vr);
+
+        rect_t source = {zr.x - vr.x, zr.y - vr.y, zr.w, zr.h};
+        source.x *= ART_W;
+        source.w *= ART_W;
+        source.y *= ART_H;
+        source.h *= ART_H;
+
+        float arscale =
+            MIN((float)grect.w / source.w, (float)grect.h / source.h);
+        SDL_Rect target = {0, 0, source.w * arscale, source.h * arscale};
+        target.x = grect.x + (grect.w - target.w) / 2;
+        target.y = grect.y + (grect.h - target.h) / 2;
+
         if (globalD.sprite) {
-          rect_t zr;
-          zoom_rect(&zr);
-
-          rect_t vr;
-          view_rect(&vr);
-
-          rect_t source = {zr.x - vr.x, zr.y - vr.y, zr.w, zr.h};
-          source.x *= ART_W;
-          source.w *= ART_W;
-          source.y *= ART_H;
-          source.h *= ART_H;
-
-          float arscale = (float)MAP_H / source.h;
-          SDL_Rect target = {0, 0, source.w * arscale, source.h * arscale};
-          target.x = grect.x + (grect.w - target.w) / 2;
-          target.y = grect.y;
-
           SDL_SetRenderDrawColor(rendererD, V4b(&greyD[4]));
           SDL_RenderDrawRect(rendererD, &source);
-
-          SDL_SetRenderDrawBlendMode(rendererD, SDL_BLENDMODE_NONE);
-          SDL_SetRenderTarget(rendererD, layoutD);
-
-          SDL_RenderCopy(rendererD, map_textureD, &source, &target);
-        } else {
-          SDL_SetRenderDrawBlendMode(rendererD, SDL_BLENDMODE_NONE);
-          SDL_SetRenderTarget(rendererD, layoutD);
-
-          SDL_RenderCopy(rendererD, map_textureD, 0, &grect);
         }
+
+        SDL_SetRenderDrawBlendMode(rendererD, SDL_BLENDMODE_NONE);
+        SDL_SetRenderTarget(rendererD, layoutD);
+
+        SDL_RenderCopy(rendererD, map_textureD, &source, &target);
       }
     }
   }
@@ -1323,8 +1368,8 @@ custom_draw()
     if (text_fnD) text_fnD(mode);
   }
 
-  // Render version stamp on all screens
-  {
+  // Render version stamp; over a fullscreen map it would only be clutter.
+  if (SIDEPANEL || mode != 0) {
     AUSE(grect, GR_VERSION);
     SDL_Point p = {grect.x, grect.y};
     render_monofont_string(renderer, &fontD, "moria", AL("moria"), p);
@@ -1649,9 +1694,10 @@ custom_orientation(orientation)
     overlay_widthD = 67;
     msg_widthD = 63;  // (MAP_W / FWIDTH) - 1;
   } else if (orientation == SDL_ORIENTATION_LANDSCAPE) {
+    int cols = layout_rectD.w / FWIDTH - 2;
     text_fn = landscape_text;
-    overlay_widthD = 78;
-    msg_widthD = 92;
+    overlay_widthD = MIN(78, cols);
+    msg_widthD = MIN(92, cols);
   }
   text_fnD = text_fn;
 
@@ -1719,6 +1765,10 @@ feature_menutext(mflag)
         text = "magnification scale";
         apcati(AP(tmp), 1 << globalD.zoom_factor);
         break;
+      case 'n':
+        text = "minimum map rows";
+        apcati(AP(tmp), globalD.map_rows);
+        break;
       case 'r':
         text = "refresh / video sync";
         value = opt[globalD.vsync != 0];
@@ -1768,6 +1818,7 @@ feature_menu()
     if (JOYSTICK) flag |= char_bit('j');
     if (JOYSTICK) flag |= char_bit('l');
     flag |= char_bit('m');
+    if (!SIDEPANEL) flag |= char_bit('n');
     if (!PC) flag |= char_bit('o');
     flag |= char_bit('p');
     flag |= char_bit('r');
@@ -1816,6 +1867,12 @@ feature_menu()
         break;
       case 'm':
         globalD.zoom_factor = (globalD.zoom_factor - 1) % MAX_ZOOM;
+        break;
+      case 'n':
+        if (globalD.map_rows >= SYMMAP_HEIGHT)
+          globalD.map_rows = MAP_ROWS_MIN;
+        else
+          globalD.map_rows += MAP_ROWS_STEP;
         break;
       case 'r':
         platformD.vsync(INVERT(globalD.vsync));

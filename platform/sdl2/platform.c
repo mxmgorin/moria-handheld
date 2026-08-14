@@ -55,6 +55,9 @@ enum { LANDSCAPE = 0 };
 #define LANDSCAPE_X 1920
 #define LANDSCAPE_Y 1080
 
+// layoutD is square; neither canvas axis may exceed it.
+enum { LAYOUT_MAX = 2 * 1024 };
+
 #if __APPLE__
 #undef snprintf
 #endif
@@ -270,7 +273,7 @@ render_init()
   platform_draw();
 
   layoutD = SDL_CreateTexture(renderer, texture_formatD,
-                              SDL_TEXTUREACCESS_TARGET, 2 * 1024, 2 * 1024);
+                              SDL_TEXTUREACCESS_TARGET, LAYOUT_MAX, LAYOUT_MAX);
   if (layoutD == 0) return 0;
 
   if (PC) {
@@ -374,7 +377,11 @@ platform_orientation(orientation)
   float scale = 1.f;
   SDL_Rect layout_rect = display_rectD;
   if (orientation == SDL_ORIENTATION_LANDSCAPE) {
-    layout_rect = (rect_t){0, 0, LANDSCAPE_X, LANDSCAPE_Y};
+    // A fixed 16:9 canvas letterboxes a 4:3 panel and throws away a quarter of
+    // its height, so the width follows the panel and the height is kept.
+    int fitted = LANDSCAPE_Y * (float)display_rect.w / display_rect.h;
+    layout_rect =
+        (rect_t){0, 0, CLAMP(fitted, LANDSCAPE_Y, LAYOUT_MAX), LANDSCAPE_Y};
 
     {
       // safe_rect is respected on the orientation axis
