@@ -104,6 +104,14 @@ DATA int vsync_rateD;
 
 DATA SDL_Texture* layoutD;
 DATA SDL_Point layout_maxD;
+
+// Blit presentation. Some drivers put a frame on the panel only as a copy of a
+// streaming texture the CPU wrote -- mmiyoo on the Miyoo shows that and drops
+// every other path without erroring. So the game draws into a surface through a
+// software renderer, and the window renderer carries one texture copy per frame.
+DATA SDL_Renderer* window_rendererD;
+DATA SDL_Surface* blit_surfaceD;
+DATA SDL_Texture* blit_textureD;
 DATA SDL_Rect layout_rectD;
 DATA SDL_FRect view_rectD;
 
@@ -243,8 +251,28 @@ render_init()
   }
 
   struct SDL_Renderer* renderer = SDL_CreateRenderer(windowD, -1, 0);
-  rendererD = renderer;
   if (!renderer) return 0;
+
+  if (SDL_getenv("MORIA_BLIT")) {
+    int dw = 0, dh = 0;
+    if (SDL_GetRendererOutputSize(renderer, &dw, &dh) != 0 || dw <= 0) return 0;
+
+    window_rendererD = renderer;
+    blit_surfaceD = SDL_CreateRGBSurfaceWithFormat(0, dw, dh, 32,
+                                                   SDL_PIXELFORMAT_ABGR8888);
+    blit_textureD = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ABGR8888,
+                                      SDL_TEXTUREACCESS_STREAMING, dw, dh);
+    if (!blit_surfaceD || !blit_textureD) return 0;
+
+    // A whole frame replaces rather than blends; there is nothing underneath.
+    SDL_SetTextureBlendMode(blit_textureD, SDL_BLENDMODE_NONE);
+
+    renderer = SDL_CreateSoftwareRenderer(blit_surfaceD);
+    if (!renderer) return 0;
+    Log("blit presentation: %dx%d surface behind the window renderer", dw, dh);
+  }
+
+  rendererD = renderer;
 
   if (SDL_GetRendererInfo(renderer, &rinfo) != 0) return 0;
 
@@ -384,6 +412,13 @@ platform_draw()
   }
 
   SDL_RenderPresent(renderer);
+
+  if (blit_textureD) {
+    SDL_UpdateTexture(blit_textureD, 0, blit_surfaceD->pixels,
+                      blit_surfaceD->pitch);
+    SDL_RenderCopy(window_rendererD, blit_textureD, 0, 0);
+    SDL_RenderPresent(window_rendererD);
+  }
   return 0;
 }
 
