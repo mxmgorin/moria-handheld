@@ -27,8 +27,8 @@ commits on top of upstream `da8a3e5`:
 |A + dpad|walk one step|
 |A|act on the square you stand on|
 |B + dpad|run in that direction|
-|B|use an item — opens the inventory list|
-|X|rest|
+|B|rest until healed, or until something is seen or heard|
+|X|use an item — opens the inventory list|
 |Y|repeat the last action|
 |L1|character sheet, while held|
 |R1|dungeon map, while held|
@@ -45,8 +45,8 @@ directions at once.
 | Button | Action |
 |--|--|
 |A|use equipment|
-|B|drop an item|
-|X|message history|
+|B|message history|
+|X|drop an item|
 |Y|help — the whole layout, in game|
 |L1|magnification|
 |R1|locate yourself on the level map|

@@ -181,7 +181,7 @@ joystick_button(button)
 {
   char c = key_dir(joystick_dir());
   if (c == ' ')
-    c = (button == JS_EAST) ? 'a' : '.';
+    c = (button == JS_EAST) ? 'R' : '.';
   else if (button == JS_EAST)
     c &= ~0x20;  // run
   return c;
@@ -310,9 +310,9 @@ joystick_modifier_button(button)
     case JS_SOUTH:
       return 'e';  // use equipment
     case JS_EAST:
-      return 'd';  // drop an item
-    case JS_WEST:
       return 'p';  // message history
+    case JS_WEST:
+      return 'd';  // drop an item
     case JS_NORTH:
       return '?';  // help
     case JS_LSHOULDER:
@@ -333,7 +333,7 @@ joystick_game_button(button)
     case JS_EAST:  // movement
       return joystick_button(button);
     case JS_WEST:
-      return 'R';  // rest
+      return 'a';  // use an item
     case JS_NORTH:
       return '!';
     case JS_LSHOULDER:
@@ -575,8 +575,8 @@ joystick_help()
 
   BufMsg(screen, "dpad: step, L2+dpad: run");
   BufMsg(screen, "A: act on this square");
-  BufMsg(screen, "B: use an item, B+dpad: run");
-  BufMsg(screen, "X: rest");
+  BufMsg(screen, "B: rest, B+dpad: run");
+  BufMsg(screen, "X: use an item");
   BufMsg(screen, "Y: repeat last spell/item");
   BufMsg(screen, "L1: character sheet, held");
   BufMsg(screen, "R1: dungeon map, held");
@@ -593,8 +593,8 @@ joystick_help()
   line = 1;
   BufMsg(screen, "HOLD L2");
   BufMsg(screen, "  A: use equipment");
-  BufMsg(screen, "  B: drop an item");
-  BufMsg(screen, "  X: message history");
+  BufMsg(screen, "  B: message history");
+  BufMsg(screen, "  X: drop an item");
   BufMsg(screen, "  Y: this help");
   BufMsg(screen, "  L1: zoom adjustment");
   BufMsg(screen, "  R1: locate on the map");
