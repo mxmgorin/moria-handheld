@@ -1,0 +1,6 @@
+{
+  "label": "Mines of Moria",
+  "icon": "/mnt/SDCARD/App/MinesOfMoria/icon.png",
+  "launch": "launch.sh",
+  "description": "Descend the Mines of Moria and slay the Balrog"
+}
