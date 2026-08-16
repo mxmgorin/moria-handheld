@@ -33,7 +33,7 @@ commits on top of upstream `da8a3e5`:
 |L1|character sheet, while held|
 |R1|dungeon map, while held|
 |R2|look along a direction — press, then a dpad direction|
-|SELECT|undo a turn|
+|SELECT|message history|
 |START|game menu — help, options, save and quit|
 
 A on its own reads what is under you: stairs are taken, an item is picked up, a
@@ -45,11 +45,11 @@ directions at once.
 | Button | Action |
 |--|--|
 |A|use equipment|
-|B|message history|
 |X|drop an item|
 |Y|help — the whole layout, in game|
 |L1|magnification|
 |R1|locate yourself on the level map|
+|SELECT|undo a turn|
 
 ### In lists and menus
 

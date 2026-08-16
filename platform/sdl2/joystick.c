@@ -340,8 +340,6 @@ joystick_modifier_button(button)
   switch (button) {
     case JS_SOUTH:
       return 'e';  // use equipment
-    case JS_EAST:
-      return 'p';  // message history
     case JS_WEST:
       return 'd';  // drop an item
     case JS_NORTH:
@@ -350,6 +348,8 @@ joystick_modifier_button(button)
       return CHAR_RTRIGGER;  // magnification
     case JS_RSHOULDER:
       return 'M';  // locate on the level map
+    case JS_BACK:
+      return CTRL('z');  // undo a turn
     default:
       return 0;
   }
@@ -376,7 +376,7 @@ joystick_game_button(button)
     case JS_RTRIGGER:
       return 'x';  // examine along a direction
     case JS_BACK:
-      return CTRL('z');  // undo a turn
+      return 'p';  // message history
     case JS_START:
       return CTRL('w');  // show advanced menu
     default:
@@ -608,7 +608,7 @@ joystick_help()
   BufMsg(screen, "L1: character sheet, held");
   BufMsg(screen, "R1: dungeon map, held");
   BufMsg(screen, "R2: look along a direction");
-  BufMsg(screen, "SELECT: undo a turn");
+  BufMsg(screen, "SELECT: message history");
   BufMsg(screen, "START: game menu");
   line += 1;
   BufMsg(screen, "A takes stairs, picks an item up");
@@ -620,11 +620,11 @@ joystick_help()
   line = 1;
   BufMsg(screen, "HOLD L2");
   BufMsg(screen, "  A: use equipment");
-  BufMsg(screen, "  B: message history");
   BufMsg(screen, "  X: drop an item");
   BufMsg(screen, "  Y: this help");
   BufMsg(screen, "  L1: zoom adjustment");
   BufMsg(screen, "  R1: locate on the map");
+  BufMsg(screen, "  SELECT: undo a turn");
   line += 1;
   BufMsg(screen, "LISTS");
   BufMsg(screen, "  dpad: move the selection");
