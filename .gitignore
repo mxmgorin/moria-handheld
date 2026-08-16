@@ -6,4 +6,5 @@ dev.h
 build/
 portmaster/minesofmoria/minesofmoria.*
 onionos/
-tools/package_onionos.py
+tools/package_onionos_app.py
+tools/package_onionos_port.py
