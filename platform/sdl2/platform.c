@@ -207,13 +207,33 @@ render_init()
   // to a plain window of panel size rather than a fullscreen one of no size.
   int win_x = WINDOW_X, win_y = WINDOW_Y;
   {
-    rect_t probe = {0};
-    SDL_GetDisplayBounds(0, &probe);
-    if (probe.w <= 0 || probe.h <= 0) {
-      Log("no display bounds; plain %dx%d window", PANEL_X, PANEL_Y);
+    // MORIA_WINDOW=WxH asks for a panel of that size on a desktop, which is the
+    // only way to reproduce a handheld's geometry off the device: under a bare
+    // X server fullscreen-desktop hands back the size that was requested, not
+    // the screen's, and every layout number downstream comes out wrong.
+    char* want = SDL_getenv("MORIA_WINDOW");
+    int w = 0, h = 0;
+    if (want) {
+      char* p = want;
+      while (*p >= '0' && *p <= '9') w = w * 10 + (*p++ - '0');
+      if (*p == 'x' || *p == 'X') ++p;
+      while (*p >= '0' && *p <= '9') h = h * 10 + (*p++ - '0');
+    }
+
+    if (w > 0 && h > 0) {
+      Log("MORIA_WINDOW; plain %dx%d window", w, h);
       winflag &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
-      win_x = PANEL_X;
-      win_y = PANEL_Y;
+      win_x = w;
+      win_y = h;
+    } else {
+      rect_t probe = {0};
+      SDL_GetDisplayBounds(0, &probe);
+      if (probe.w <= 0 || probe.h <= 0) {
+        Log("no display bounds; plain %dx%d window", PANEL_X, PANEL_Y);
+        winflag &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
+        win_x = PANEL_X;
+        win_y = PANEL_Y;
+      }
     }
   }
 
@@ -453,11 +473,20 @@ platform_orientation(orientation)
   if (orientation == SDL_ORIENTATION_LANDSCAPE) {
     // A fixed 16:9 canvas letterboxes a 4:3 panel and throws away a quarter of
     // its height, so the width follows the panel and the height is kept.
-    int fitted = display_rect.h > 0
-                     ? LANDSCAPE_Y * (float)display_rect.w / display_rect.h
-                     : LANDSCAPE_X;
+    int canvas_h = LANDSCAPE_Y;
+    int fitted = LANDSCAPE_X;
+    if (display_rect.h > 0) {
+      // Whole multiples of the panel only. The canvas reaches the screen
+      // through one scaling step, and at 1:n that step averages whole blocks;
+      // at any other ratio it drops rows instead. A 1080-row canvas on a
+      // 480-row panel loses 56% of them, which is what tears the 1-bit sprite
+      // sheet apart while leaving the simpler glyph shapes readable.
+      int multiple = MAX(LANDSCAPE_Y / display_rect.h, 1);
+      canvas_h = multiple * display_rect.h;
+      fitted = multiple * display_rect.w;
+    }
     layout_rect =
-        (rect_t){0, 0, CLAMP(fitted, LANDSCAPE_Y, layout_maxD.x), LANDSCAPE_Y};
+        (rect_t){0, 0, CLAMP(fitted, canvas_h, layout_maxD.x), canvas_h};
 
     {
       // safe_rect is respected on the orientation axis

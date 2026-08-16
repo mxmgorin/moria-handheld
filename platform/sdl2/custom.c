@@ -197,13 +197,21 @@ custom_pregame()
       // over the same pixels: the column count is untouched, so every sprite
       // still sits where its id says it does.
       int rows = (sprite_idD + SPRITE_SQ) / SPRITE_SQ;
-      SDL_Surface* used = SDL_CreateRGBSurfaceWithFormatFrom(
-          sprite->pixels, sprite->w, ART_H * rows, 1, sprite->pitch,
-          SDL_PIXELFORMAT_INDEX1LSB);
+      // Expand the rasters here rather than hand SDL an INDEX1LSB surface:
+      // SDL2 reads one of those most significant bit first whatever the format
+      // says, mirroring every group of eight pixels, which tears the art into
+      // displaced strips. SDL3 reads it correctly, so this only shows up on a
+      // device. art_decode wrote bit x of the row as pixel x, least significant
+      // bit leftmost, and that is the order undone here.
+      SDL_Surface* used = SDL_CreateRGBSurfaceWithFormat(
+          0, sprite->w, ART_H * rows, 32, SDL_PIXELFORMAT_ABGR8888);
       if (used) {
-        SDL_Palette* palette = used->format->palette;
-        *(int*)&palette->colors[0] = 0;
-        *(int*)&palette->colors[1] = -1;
+        for (int y = 0; y < used->h; ++y) {
+          uint8_t* bits = (uint8_t*)sprite->pixels + y * sprite->pitch;
+          int* pixel = iptr((uint8_t*)used->pixels + y * used->pitch);
+          for (int x = 0; x < used->w; ++x)
+            pixel[x] = (bits[x / 8] >> (x % 8)) & 1 ? -1 : 0;
+        }
       }
 
       // SDL2 determines texture format
@@ -298,6 +306,12 @@ custom_pregame()
                                    SDL_TEXTUREACCESS_TARGET, MAP_W, MAP_H);
   if (!map_textureD) return 5;
   SDL_SetTextureBlendMode(map_textureD, SDL_BLENDMODE_NONE);
+  // Sprites land here one art cell to one ART_W by ART_H block, and the whole
+  // map is stretched to the gameplay rect in a single step. That ratio is
+  // whatever the panel and the magnification make it -- 2.86 on a 640x480
+  // screen at 4x -- and nearest sampling turns a 1-bit silhouette into a torn
+  // one, duplicating some columns twice and others three times.
+  SDL_SetTextureScaleMode(map_textureD, SDL_ScaleModeLinear);
 
   if (JOYSTICK) joystick_init();
   // The video driver gives the device away; the variable is for trying the
