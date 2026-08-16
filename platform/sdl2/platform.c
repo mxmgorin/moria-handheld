@@ -620,6 +620,8 @@ sdl_pump()
     }
   }
 
+  // A held direction produces no further events; its repeat is timed instead.
+  if (ret == 0) ret = sdl_dpad_repeat();
   if (ret == 0) ret = platform_idle();
   return ret;
 }

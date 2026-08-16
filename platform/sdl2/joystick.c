@@ -41,6 +41,11 @@ DATA int dpad_bitsD;
 DATA int dpad_bit_by_idD[] = {HAT_UP, HAT_DOWN, HAT_LEFT, HAT_RIGHT};
 DATA int modifier_heldD;
 
+// Milliseconds before a held direction repeats, and the gap between repeats.
+// The delay has to outlast a deliberate tap.
+enum { DPAD_REPEAT_DELAY = 300, DPAD_REPEAT_INTERVAL = 110 };
+DATA uint64_t dpad_repeat_atD;
+
 enum {
   JA_LX,
   JA_LY,
@@ -165,6 +170,7 @@ joystick_assign(jsidx)
   jxD = jyD = .5;
   dpad_bitsD = 0;
   modifier_heldD = 0;
+  dpad_repeat_atD = 0;
 }
 STATIC int
 joystick_dir()
@@ -286,6 +292,35 @@ dpad_input(dir, mode)
   if (mode == 1) return overlay_dir(dir, 0);
   return ' ';  // popup dismissal, as a touch on the pad does
 }
+// The direction now held, acted on only when act asks: a release just
+// recenters. delay rearms the repeat below.
+STATIC int
+dpad_step(act, mode, delay)
+{
+  int dir = dpad_direction(dpad_bitsD);
+
+  int ret = act ? dpad_input(dir, mode) : 0;
+  if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
+
+  dpad_repeat_atD = dpad_bitsD ? SDL_GetTicks64() + delay : 0;
+  return ret;
+}
+// Neither source repeats on its own: a hat reports the change and nothing
+// after, and the Miyoo's keys arrive without kernel autorepeat. Gameplay only,
+// or a held direction would page a list or dismiss a popup it never read.
+int
+sdl_dpad_repeat()
+{
+  USE(mode);
+
+  // Outside gameplay the hold belongs to whatever is on screen, not the map.
+  if (mode != 0) dpad_repeat_atD = 0;
+  // A -more- would be dismissed unread, one prompt per interval.
+  if (!dpad_repeat_atD || msg_moreD) return 0;
+  if (SDL_GetTicks64() < dpad_repeat_atD) return 0;
+
+  return dpad_step(1, mode, DPAD_REPEAT_INTERVAL);
+}
 int
 sdl_hat_motion(SDL_Event event)
 {
@@ -294,12 +329,8 @@ sdl_hat_motion(SDL_Event event)
   int prev = dpad_bitsD;
   dpad_bitsD = event.jhat.value;
 
-  int ret = 0;
-  int dir = dpad_direction(dpad_bitsD);
   // Releases only recenter; acting on them too would double every step.
-  if (dpad_bitsD & ~prev) ret = dpad_input(dir, mode);
-  if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
-  return ret;
+  return dpad_step(dpad_bitsD & ~prev, mode, DPAD_REPEAT_DELAY);
 }
 // Held left trigger: the commands the ten buttons have no room for. A modifier
 // rather than a stick click, since a device may carry no sticks at all.
@@ -398,11 +429,7 @@ pad_dpad(bit, state, mode)
   else
     dpad_bitsD &= ~bit;
 
-  int ret = 0;
-  int dir = dpad_direction(dpad_bitsD);
-  if (state) ret = dpad_input(dir, mode);
-  if (ret > ' ' && mode == 0 && msg_moreD) ret = ' ';
-  return ret;
+  return dpad_step(state, mode, DPAD_REPEAT_DELAY);
 }
 STATIC int
 pad_button(id, state, mode)
