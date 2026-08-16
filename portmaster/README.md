@@ -1,20 +1,19 @@
 ## Notes
 
 Mines of Moria by [Rufe.org](https://github.com/RufeDotOrg/moria_at), a rebuild of Umoria
-(GPLv3), which is Robert Alan Koeneke's 1983 Moria. Built from the `portmaster`
-branch of [this fork](https://github.com/mxmgorin/moria_at/tree/portmaster), four
-commits on top of upstream `da8a3e5`:
+(GPLv3), which is Robert Alan Koeneke's 1983 Moria. Built from the `handheld`
+branch of [this fork](https://github.com/mxmgorin/moria_at/tree/handheld), on top
+of upstream `da8a3e5`:
 
 - the window is created as fullscreen-desktop rather than requesting an
   exclusive 1920x1080 mode, which no handheld panel offers;
 - the dpad is read from a hat or from dpad buttons, not just the analog axes,
-  so devices without a stick can be played at all;
+  so devices without a stick can be played at all, and a held direction repeats;
 - the layout canvas follows the panel instead of being fixed at 16:9, and the
   touch pad, face buttons, stat block and minimap are dropped, so the map fills
-  the screen;
+  the screen — health moves to the status row under it;
 - holding L2 opens a second command layer, for the commands ten buttons have no
-  room for, and the buttons are laid out the way a handheld expects — A acts, B
-  backs out, L1 undoes.
+  room for, and the buttons are laid out the way a handheld expects.
 
 ## Controls
 
@@ -24,7 +23,6 @@ commits on top of upstream `da8a3e5`:
 |--|--|
 |dpad|walk one step|
 |L2 + dpad|run in that direction|
-|A + dpad|walk one step|
 |A|act on the square you stand on|
 |B + dpad|run in that direction|
 |B|rest until healed, or until something is seen or heard|
