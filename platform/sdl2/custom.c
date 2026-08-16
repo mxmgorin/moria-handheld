@@ -43,6 +43,9 @@ enum { MMSCALE = 2 };
 // R1 map), so without touch the map takes the canvas instead.
 enum { SIDEPANEL = TOUCH };
 
+// Health below this share of the maximum is shown in the warning colour.
+enum { HP_ALERT_PERCENT = 25 };
+
 DATA char moreD[] = "-more-";
 
 DATA fn text_fnD;
@@ -700,7 +703,6 @@ vitalstat_text()
 int
 game_text()
 {
-  USE(layout_rect);
   USE(renderer);
   char tmp[80];
   int len;
@@ -764,12 +766,27 @@ game_text()
       }
     }
   } else {
-    // Status row under the map: depth on the left, turn count on the right.
+    // Status row under the map: health on the left, depth centred, turns on the
+    // right. There is no stat panel in this layout, so health is the one number
+    // that must not cost a button press.
     AUSE(grect, GR_GAMEPLAY);
-    SDL_Point p = {0, grect.y + grect.h};
+    SDL_Point p = {grect.x, grect.y + grect.h};
 
-    // Centred: the bottom left of the canvas carries the -press spacebar- hint.
+    len = snprintf(tmp, AL(tmp), "hp %d/%d", uD.chp, uD.mhp);
+    if (uD.chp * 100 <= uD.mhp * HP_ALERT_PERCENT)
+      font_color(globalD.font_color ? greyD[5] : font_rgba(RED));
+    render_monofont_string(renderer, &fontD, tmp, len, p);
+    font_reset();
+
+    if (uD.mmana) {
+      p.x += (len + 1) * FWIDTH;
+      len = snprintf(tmp, AL(tmp), "sp %d/%d", uD.cmana, uD.mmana);
+      render_monofont_string(renderer, &fontD, tmp, len, p);
+    }
+
+    // The hint takes the middle while it is up; the depth is not going anywhere.
     char* label = dun_level ? dun_descD : "town square";
+    if (PC && (msg_moreD || TEST_UI)) label = "-press spacebar-";
     int label_len = strlen(label);
     p.x = grect.x + (grect.w - label_len * FWIDTH) / 2;
     render_monofont_string(renderer, &fontD, label, label_len, p);
@@ -777,16 +794,6 @@ game_text()
     len = snprintf(tmp, AL(tmp), "turn:%7d", turnD);
     p.x = grect.x + grect.w - len * FWIDTH;
     render_monofont_string(renderer, &fontD, tmp, len, p);
-  }
-
-  if (PC) {
-    if (msg_moreD || TEST_UI) {
-      DATA char spacebar[] = "-press spacebar-";
-      SDL_Point p = {0, layout_rect.h};
-      p.x += AL(spacebar);
-      p.y -= FHEIGHT;
-      render_monofont_string(renderer, &fontD, AP(spacebar), p);
-    }
   }
 
   return 0;
