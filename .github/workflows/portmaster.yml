@@ -1,4 +1,4 @@
-name: PortMaster
+name: Packages
 
 # The build lives in tools/, not here: CI runs the same scripts a laptop does,
 # so a release cannot come out different from a local build.
@@ -38,15 +38,19 @@ jobs:
       - name: Package
         run: |
           python3 tools/package.py
+          python3 tools/package_onionos_app.py
+          python3 tools/package_onionos_port.py
           cd build
-          sha256sum minesofmoria-portmaster.zip > minesofmoria-portmaster.zip.sha256
+          for zip in minesofmoria-*.zip; do
+            sha256sum "$zip" > "$zip.sha256"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
           name: minesofmoria
           path: |
-            build/minesofmoria-portmaster.zip
-            build/minesofmoria-portmaster.zip.sha256
+            build/minesofmoria-*.zip
+            build/minesofmoria-*.zip.sha256
 
       - name: Attach to the release
         if: github.event_name == 'release'
@@ -54,4 +58,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" \
-            build/minesofmoria-portmaster.zip build/minesofmoria-portmaster.zip.sha256 --clobber
+            build/minesofmoria-*.zip build/minesofmoria-*.zip.sha256 --clobber
