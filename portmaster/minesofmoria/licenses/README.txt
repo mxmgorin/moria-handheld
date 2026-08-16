@@ -32,7 +32,7 @@ bundled: the binary links against the libSDL2 the device already provides.
 SOURCE
 The GPL requires the source that corresponds to this binary. It is at
 
-  https://github.com/mxmgorin/moria_at   branch: portmaster
+  https://github.com/mxmgorin/moria_at   branch: handheld
 
 which is a fork of https://github.com/RufeDotOrg/moria_at with the handheld
 changes on top. Each build stamps its own commit into the executable, and the

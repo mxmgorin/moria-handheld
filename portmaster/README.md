@@ -74,13 +74,13 @@ it and the map keeps its rows and gains bars down the sides instead.
 
 GPL-3.0-or-later, as upstream. `minesofmoria/licenses/` holds the texts and a
 README saying what each one covers; SDL2 is not bundled, the device supplies it.
-The corresponding source is the `portmaster` branch linked above, and every build
+The corresponding source is the `handheld` branch linked above, and every build
 stamps its own commit into the executable, shown under `v) version detail`.
 
 ## Compile
 
 ```shell
-git clone -b portmaster https://github.com/mxmgorin/moria_at && cd moria_at
+git clone -b handheld https://github.com/mxmgorin/moria_at && cd moria_at
 ln -sf "$PWD/platform/sdl2" src/platform
 zig cc -target aarch64-linux-gnu.2.28 \
   -std=gnu17 -O2 -DRELEASE -DNDEBUG \

@@ -5,7 +5,7 @@ name: PortMaster
 on:
   workflow_dispatch:
   push:
-    branches: ["portmaster"]
+    branches: ["handheld"]
   release:
     types: [published]
 

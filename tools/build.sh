@@ -6,7 +6,7 @@
 #   tools/build.sh x86_64    desktop CFWs and local testing
 #
 # zig cc holds the glibc floor down by itself, so there is no sysroot to keep in
-# step with an archived distro. src/ is a checkout of the portmaster branch of
+# step with an archived distro. src/ is a checkout of the handheld branch of
 # github.com/mxmgorin/moria_at; every fix lives there as a commit and this only
 # compiles. SDL2 headers come from the tree (third_party/SDL2/SDL.h, a flattened
 # 2.28.5 header), so no SDL2 dev package is required either.
