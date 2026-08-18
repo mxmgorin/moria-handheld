@@ -917,7 +917,9 @@ landscape_text(mode)
       SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
     }
 
-    if (msg_more || TEST_UI) {
+    // Touch taps a corner to clear the message, so the labels sit there. Every
+    // other layout has the hint in the status row and cannot spare the columns.
+    if (SIDEPANEL && (msg_more || TEST_UI)) {
       int mlimit = STRLEN_MORE * FWIDTH;
       int margin = FWIDTH;
 
