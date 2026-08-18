@@ -2,8 +2,10 @@
 
 #include "asset/font_zlib.c"
 
-enum { FHEIGHT = 32 };
-enum { FWIDTH = 16 };
+// Atlas cell. FWIDTH/FHEIGHT below are the cell drawn into, which layout
+// measures in and which shrinks on a canvas short of columns.
+enum { FGLYPH_H = 32 };
+enum { FGLYPH_W = 16 };
 enum { FALPHA = 0xff };
 enum { PREV_ALPHA = 0x88 };
 // texture width/height
@@ -15,7 +17,10 @@ struct fontS {
 DATA struct SDL_Texture* font_textureD;
 DATA struct SDL_Texture* pixel_textureD;
 DATA int font_colorD;
-DATA point_t font_scaleD = {FWIDTH, FHEIGHT};
+DATA point_t font_scaleD = {FGLYPH_W, FGLYPH_H};
+
+#define FWIDTH (font_scaleD.x)
+#define FHEIGHT (font_scaleD.y)
 
 STATIC point_t
 point_by_glyph(uint32_t index)
@@ -23,8 +28,8 @@ point_by_glyph(uint32_t index)
   int col = index % FTEX_W;
   int row = index / FTEX_W;
   return (SDL_Point){
-      col * FWIDTH,
-      row * FHEIGHT,
+      col * FGLYPH_W,
+      row * FGLYPH_H,
   };
 }
 
@@ -33,7 +38,7 @@ glyph_init()
 {
   SDL_Texture* texture = 0;
   struct SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(
-      SDL_SWSURFACE, FWIDTH * FTEX_W, FHEIGHT * FTEX_H, 0,
+      SDL_SWSURFACE, FGLYPH_W * FTEX_W, FGLYPH_H * FTEX_H, 0,
       SDL_PIXELFORMAT_INDEX8);
 
   if (surface) {
@@ -46,7 +51,7 @@ glyph_init()
     }
 
     int rc;
-    unsigned long size = FWIDTH * FTEX_W * FHEIGHT * FTEX_H;
+    unsigned long size = FGLYPH_W * FTEX_W * FGLYPH_H * FTEX_H;
     unsigned long zsize = font_zlib_len;
     rc = puff(surface->pixels, &size, font_zlib, &zsize);
     Log("glyph_init puff rc %d\n", rc);
@@ -102,7 +107,7 @@ render_monofont_string(struct SDL_Renderer* renderer, struct fontS* font,
   for (int it = 0; it < len; ++it) {
     char c = string[it];
     if (char_visible(c)) {
-      rect_t src = (rect_t){XY(point_by_glyph(c)), FWIDTH, FHEIGHT};
+      rect_t src = (rect_t){XY(point_by_glyph(c)), FGLYPH_W, FGLYPH_H};
       SDL_RenderCopy(renderer, font_texture, &src, &target_rect);
     }
     target_rect.x += font_scale.x;
@@ -130,7 +135,7 @@ render_monofont_block_text(struct SDL_Renderer* renderer, struct fontS* font,
         char c = line[col];
         if (char_visible(c)) {
           count += 1;
-          rect_t src = (rect_t){XY(point_by_glyph(c)), FWIDTH, FHEIGHT};
+          rect_t src = (rect_t){XY(point_by_glyph(c)), FGLYPH_W, FGLYPH_H};
           SDL_RenderCopy(renderer, font_texture, &src, &target_rect);
         }
         target_rect.x += target_rect.w;
@@ -165,7 +170,7 @@ font_reset()
 STATIC rect_t
 font_rect_by_char(char c)
 {
-  return (rect_t){XY(point_by_glyph(c)), FWIDTH, FHEIGHT};
+  return (rect_t){XY(point_by_glyph(c)), FGLYPH_W, FGLYPH_H};
 }
 
 #define FONT 1

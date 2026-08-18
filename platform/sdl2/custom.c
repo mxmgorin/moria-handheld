@@ -46,6 +46,12 @@ enum { SIDEPANEL = TOUCH };
 // Health below this share of the maximum is shown in the warning colour.
 enum { HP_ALERT_PERCENT = 25 };
 
+// Widest row the game composes: overlay lines are written to this, and it is
+// what msg_hint right-justifies a hint against.
+enum { OVERLAY_COLUMNS = 78 };
+// A column either side keeps a full-width row off the edges of the canvas.
+enum { LAYOUT_COLUMNS = OVERLAY_COLUMNS + 2 };
+
 DATA char moreD[] = "-more-";
 
 DATA fn text_fnD;
@@ -355,6 +361,15 @@ custom_postgame(may_exit)
   return platform_postgame(may_exit);
 }
 
+// The atlas cell assumes the 1920 canvas upstream builds for. On a handheld's
+// canvas it leaves too few columns for the rows the game composes, so the cell
+// shrinks until LAYOUT_COLUMNS fit rather than the text running off the edge.
+static point_t
+font_cell(int canvas_w)
+{
+  int w = CLAMP(canvas_w / LAYOUT_COLUMNS, 1, FGLYPH_W);
+  return (point_t){w, w * FGLYPH_H / FGLYPH_W};
+}
 static int
 portrait_layout()
 {
@@ -1750,14 +1765,17 @@ custom_orientation(orientation)
 
   fn text_fn = 0;
   if (orientation == SDL_ORIENTATION_PORTRAIT) {
+    // Fixed 1080x1920 canvas; the counts below are written for the atlas cell.
+    font_scaleD = (point_t){FGLYPH_W, FGLYPH_H};
     text_fn = portrait_text;
     overlay_widthD = 67;
     msg_widthD = 63;  // (MAP_W / FWIDTH) - 1;
   } else if (orientation == SDL_ORIENTATION_LANDSCAPE) {
+    font_scaleD = font_cell(layout_rectD.w);
     int cols = layout_rectD.w / FWIDTH - 2;
     text_fn = landscape_text;
-    overlay_widthD = MIN(78, cols);
-    msg_widthD = MIN(92, cols);
+    overlay_widthD = MIN(OVERLAY_COLUMNS, cols);
+    msg_widthD = MIN(STRLEN_MSG, cols);
   }
   text_fnD = text_fn;
 
