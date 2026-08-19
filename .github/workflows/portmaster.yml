@@ -5,7 +5,7 @@ name: Packages
 on:
   workflow_dispatch:
   push:
-    branches: ["handheld"]
+    branches: ["main"]
   release:
     types: [published]
 
