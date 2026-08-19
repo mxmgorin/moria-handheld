@@ -16,10 +16,10 @@ jobs:
   package:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # zig is ~50 MB and the SDL2 debs ~2 MB; both are pinned in the script.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: build/download-cache
           key: toolchain-${{ hashFiles('tools/fetch_toolchain.sh') }}
@@ -45,7 +45,7 @@ jobs:
             sha256sum "$zip" > "$zip.sha256"
           done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: minesofmoria
           path: |
